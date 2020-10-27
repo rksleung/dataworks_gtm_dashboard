@@ -90,13 +90,79 @@ def finance_indicator(mu, product, df, account):
 
     # if no results were found
     if df.empty:
+        return 0
+
+    won = millify(str(df[df["Month"] == currentMonth()]["Amount"].sum()))
+    return won
+
+def sales_pipeline(mu, product, df):
+#    df["CreatedDate"] = pd.to_datetime(df["CreatedDate"], format="%Y-%m-%d")
+
+    # source filtering
+    if product != "all_s":
+        df = df[df["Product"] == product]
+
+    # period filtering
+    if mu != "ALL":
+        df = df[df["Market Unit"] == mu]
+
+    df = df[df["Quarter"] > '2020Q4']
+
+    df_f = df[df["Account"] == 'Revenue']
+
+    df_f = (
+        df_f.groupby([pd.Grouper(key="Quarter")])
+        .sum()
+        .reset_index()
+        .sort_values("Quarter")
+    )
+
+    df_p = df[df["Account"] == 'Pipeline']
+
+    df_p = (
+        df_p.groupby([pd.Grouper(key="Quarter")])
+        .sum()
+        .reset_index()
+        .sort_values("Quarter")
+    )
+
+    # if no results were found
+    if df_f.empty:
         layout = dict(
             autosize=True, annotations=[dict(text="No results found", showarrow=False)]
         )
         return {"data": [], "layout": layout}
 
-    won = millify(str(df[df["Month"] == currentMonth()]["Amount"].sum()))
-    return won
+    trace = go.Bar(
+        x=df_f["Quarter"],
+        y=df_f["Forecast"],
+        name="Forecast",
+    )
+
+    trace1 = go.Bar(
+        x=df_p["Quarter"],
+        y=df_p["Amount"],
+        name="Pipeline",
+    )
+    
+    data = [trace, trace1]
+
+    layout = go.Layout(
+        autosize=True,
+        xaxis=dict(showgrid=False),
+        margin=dict(l=35, r=5, b=80, t=5, pad=4),
+        paper_bgcolor="white",
+        plot_bgcolor="white",
+        legend=dict(
+                 orientation="h",
+                 yanchor="bottom",
+                 y=1.02,
+                 xanchor="right",
+                 x=1
+        )        
+    )
+
+    return {"data": data, "layout": layout}
 
 # returns heat map figure
 def heat_map_fig(df, x, y):
@@ -480,14 +546,14 @@ layout = [
                     ),
                 ],
             ),
-            html.Div(
-                id="top_open_container",
-                className="pretty_container",
-                children=[
-                    html.Div([html.P("Income Statement")], className="subtitle"),
-                    html.Div(id="top_open_opportunities", className="table"),
-                ],
-            ),
+            #html.Div(
+            #    id="top_open_container",
+            #    className="pretty_container",
+            #    children=[
+            #        html.Div([html.P("Income Statement")], className="subtitle"),
+            #        html.Div(id="top_open_opportunities", className="table"),
+            #    ],
+            #),
         ],
     ),
     modal(),
@@ -506,6 +572,18 @@ layout = [
 def actual_vs_budget_callback(market_unit, product, df):
     df = pd.read_csv(df)
     return actual_vs_budget(market_unit, product, df)
+
+@app.callback(
+    Output("sales_pipeline", "figure"),
+    [
+        Input("market_unit_dropdown", "value"),
+        Input("product_dropdown", "value"),
+        Input("finance_df", "data"),
+    ],
+)
+def sales_pipeline_callback(market_unit, product, df):
+    df = pd.read_csv(df)
+    return sales_pipeline(market_unit, product, df)
 
 @app.callback(
     Output("left_finance_indicator", "children"),
