@@ -3,7 +3,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 from app import sf_manager, app
-from panels import opportunities, cases, leads
+from panels import overview, opportunities, cases, leads
 
 
 server = app.server
@@ -26,6 +26,7 @@ app.layout = html.Div(
             id="tabs",
             className="row tabs",
             children=[
+                dcc.Link("Overview", href="/"),
                 dcc.Link("Opportunities", href="/"),
                 dcc.Link("Leads", href="/"),
                 dcc.Link("Cases", href="/"),
@@ -36,10 +37,16 @@ app.layout = html.Div(
             className="row tabs",
             style={"display": "none"},
             children=[
+                dcc.Link("Overview", href="/"),
                 dcc.Link("Opportunities", href="/"),
                 dcc.Link("Leads", href="/"),
                 dcc.Link("Cases", href="/"),
             ],
+        ),
+        dcc.Store(  # finance df
+            id="finance_df",
+            data="data/df_actual_vs_budget.csv",
+            #data=csv_manager.get_data(),
         ),
         dcc.Store(  # opportunities df
             id="opportunities_df",
@@ -83,26 +90,23 @@ app.layout = html.Div(
     [Input("url", "pathname")],
 )
 def display_page(pathname):
-    tabs = [
-        dcc.Link("Opportunities", href="/dash-salesforce-crm/opportunities"),
-        dcc.Link("Leads", href="/dash-salesforce-crm/leads"),
-        dcc.Link("Cases", href="/dash-salesforce-crm/cases"),
+    tabNames = [
+        {'name':"Overview", 'path':"/panel/overview"},
+        {'name':"Opportunities", 'path':"/panel/opportunities"},
+        {'name':"Leads", 'path':"/panel/leads"},
+        {'name':"Cases", 'path':"/panel/cases"},
     ]
-    if pathname == "/dash-salesforce-crm/opportunities":
-        tabs[0] = dcc.Link(
-            dcc.Markdown("**&#9632 Opportunities**"),
-            href="/dash-salesforce-crm/opportunities",
-        )
-        return opportunities.layout, tabs, tabs
-    elif pathname == "/dash-salesforce-crm/cases":
-        tabs[2] = dcc.Link(
-            dcc.Markdown("**&#9632 Cases**"), href="/dash-salesforce-crm/cases"
-        )
-        return cases.layout, tabs, tabs
-    tabs[1] = dcc.Link(
-        dcc.Markdown("**&#9632 Leads**"), href="/dash-salesforce-crm/leads"
-    )
-    return leads.layout, tabs, tabs
+    tabs = []
+    for tabName in tabNames:
+        tabs.append(dcc.Link(tabName['name'], href=tabName['path']))
+    for idx, tabName in enumerate(tabNames):
+        if tabName['path'] == pathname:
+            tabs[idx] = dcc.Link(
+                dcc.Markdown("**&#9632 " + tabName['name'] + "**"),
+                href=pathname,
+            )
+            return globals()[tabName['name'].lower()].layout, tabs, tabs
+    return globals()[tabNames[0]['name'].lower()].layout, tabs, tabs
 
 
 @app.callback(
